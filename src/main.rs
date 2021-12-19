@@ -55,7 +55,7 @@ pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Brai
     match result {
         Ok(customer) => {
             let subscription = braintree.subscription().create(braintree::subscription::Request{
-                plan_id: Some("basic".to_string()),
+                plan_id: Some(signup.membership_type.to_string()),
                 payment_method_token: customer.credit_card.unwrap().token,
             });
 
@@ -81,19 +81,19 @@ pub async fn index() -> HttpResponse {
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 pub async fn basic(braintree : web::Data<Mutex<Braintree>>) -> HttpResponse {
-    form(braintree, "Basic", 12, 2).await
+    form(braintree, "basic", 12, 2).await
 }
 
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 pub async fn middle(braintree : web::Data<Mutex<Braintree>>) -> HttpResponse {
-    form(braintree, "Super Cewl", 75, 25).await
+    form(braintree, "super_cewl", 75, 25).await
 }
 
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 pub async fn top(braintree : web::Data<Mutex<Braintree>>) -> HttpResponse {
-    form(braintree, "Virtue Signaling", 31337, 30000).await
+    form(braintree, "virtue_signaling", 31337, 30000).await
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -139,7 +139,7 @@ async fn main() -> std::io::Result<()> {
             .route("/middle", web::get().to(middle))
             .route("/top", web::get().to(top))
             .route("/thanks", web::get().to(thanks))
-            .route("/basic_signup", web::post().to(signup))
+            .route("/signup", web::post().to(signup))
             .route("/", web::post().to(submit))
     })
     .bind("0.0.0.0:7777")?
