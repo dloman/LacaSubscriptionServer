@@ -53,7 +53,17 @@ pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Brai
     });
     print!("trying to print customer");
     match result {
-        Ok(customer) => println!("\n\nCustomer: {:#?}", customer),
+        Ok(customer) => {
+            let subscription = braintree.subscription().create(braintree::subscription::Request{
+                plan_id: Some("basic".to_string()),
+                payment_method_token: customer.credit_card.unwrap().token,
+            });
+
+            match subscription {
+                Ok(subscription) => println!("\n\nWooooo!!! {:#?} \n\n", subscription),
+                Err(err) => println!("\nError: {}\n", err),
+            }
+        },
         Err(err) => println!("\nError: {}\n", err),
     }
 
