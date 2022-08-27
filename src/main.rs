@@ -2,6 +2,7 @@ use actix_web::{web, App, HttpServer, HttpResponse};
 use braintree::{Address, Braintree, CreditCard, Customer, Environment};
 use log::{info};
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 use std::sync::{Mutex};
 
 #[derive(Deserialize,Debug, Serialize)]
@@ -32,6 +33,8 @@ pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Brai
     print!("request = {:#?}\n", signup);
 
     let braintree = &*(braintree.lock().unwrap());
+    let mut custom_fields = HashMap::new();
+    custom_fields.insert(String::from("password_hash"), String::from("fgdfgdfg"));
     let result = braintree.customer().generate(Customer{
         email: Some(signup.email.to_string()),
         first_name: Some(signup.first_name.to_string()),
@@ -49,11 +52,12 @@ pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Brai
             }),
             ..Default::default()
         }),
+        custom_fields: Some(custom_fields),
         ..Default::default()
     });
-    print!("trying to print customer");
     match result {
         Ok(customer) => {
+            print!("customer {:#?}", customer);
             let subscription = braintree.subscription().create(braintree::subscription::Request{
                 plan_id: Some(signup.membership_type.to_string()),
                 payment_method_token: customer.credit_card.unwrap().token,
@@ -126,7 +130,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let merchant_id = std::env::var("MERCHANT_ID").expect("environment variable MERCHANT_ID is not defined");
         let braintree = web::Data::new(Mutex::new(Braintree::new(
-                    Environment::Sandbox,
+                    Environment::from_str(&std::env::var("ENVIRONMENT").expect("environment variable ENVIRONMENT is not defined")).unwrap(),
                     merchant_id,
                     std::env::var("PUBLIC_KEY").expect("environment variable PUBLIC_KEY is not defined"),
                     std::env::var("PRIVATE_KEY").expect("environment variable PRIVATE_KEY is not defined"),
