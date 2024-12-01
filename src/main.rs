@@ -1,8 +1,7 @@
 use actix_web::{web, App, HttpServer, HttpResponse, middleware::Logger};
 use braintree::{Address, Braintree, CreditCard, Customer, Environment};
-use log::{info};
+use log::{error, info};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::sync::{Mutex};
 
 #[derive(Deserialize,Debug, Serialize)]
@@ -29,12 +28,19 @@ pub async fn thanks() -> HttpResponse {
 
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
+pub async fn error() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../static/error.html"))
+}
+
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
 pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Braintree>>) -> HttpResponse {
-    print!("request = {:#?}\n", signup);
+    info!("request = {:#?}\n", signup);
 
     let braintree = &*(braintree.lock().unwrap());
-    let mut custom_fields = HashMap::new();
-    custom_fields.insert(String::from("password_hash"), String::from("fgdfgdfg"));
+    info!("constructing customer ");
     let result = braintree.customer().generate(Customer{
         email: Some(signup.email.to_string()),
         first_name: Some(signup.first_name.to_string()),
@@ -52,23 +58,30 @@ pub async fn signup(signup : web::Form<Signup>, braintree : web::Data<Mutex<Brai
             }),
             ..Default::default()
         }),
-        custom_fields: Some(custom_fields),
         ..Default::default()
     });
+    info!("got result {:#?}", result); 
     match result {
         Ok(customer) => {
-            print!("customer {:#?}", customer);
+            info!("customer {:#?}", customer);
             let subscription = braintree.subscription().create(braintree::subscription::Request{
                 plan_id: Some(signup.membership_type.to_string()),
                 payment_method_token: customer.credit_card.unwrap().token,
             });
 
+            info!("subscription {:#?}", subscription);
             match subscription {
-                Ok(subscription) => println!("\n\nWooooo!!! {:#?} \n\n", subscription),
-                Err(err) => println!("\nError: {}\n", err),
+                Ok(subscription) => info!("\n\nWooooo!!! {:#?} \n\n", subscription),
+                Err(err) => {
+                    error!("\nError: {:#?}\n", err);
+                    return error().await;
+                }
             }
         },
-        Err(err) => println!("\nError: {}\n", err),
+        Err(err) => {
+            error!("\nError: {:#?}\n", err);
+            return error().await;
+        }
     }
 
     thanks().await
@@ -146,6 +159,7 @@ async fn main() -> std::io::Result<()> {
             .route("/top", web::get().to(top))
             .route("/thanks", web::get().to(thanks))
             .route("/signup", web::post().to(signup))
+            .route("/error", web::post().to(error))
             .route("/", web::post().to(submit))
     })
     .bind("0.0.0.0:7777")?
