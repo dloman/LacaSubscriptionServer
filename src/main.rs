@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer, HttpResponse};
+use actix_web::{web, App, HttpServer, HttpResponse, middleware::Logger};
 use braintree::{Address, Braintree, CreditCard, Customer, Environment};
 use log::{info};
 use serde::{Serialize, Deserialize};
@@ -124,6 +124,7 @@ pub async fn submit(json : web::Json<serde_json::Value>) -> HttpResponse {
 //----------------------------------------------------------------------------------------------------
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     info!("setting up braintree");
 
     info!("starting server on 7777!");
@@ -136,6 +137,7 @@ async fn main() -> std::io::Result<()> {
                     std::env::var("PRIVATE_KEY").expect("environment variable PRIVATE_KEY is not defined"),
                     )));
         App::new()
+            .wrap(Logger::default())
             .app_data(braintree)
             .service(actix_files::Files::new("/assets", "assets").show_files_listing())
             .route("/", web::get().to(index))
